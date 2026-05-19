@@ -8,6 +8,7 @@ from app.webui.gradio_app import (
     build_state_from_ui,
     format_estimate_markdown,
     make_run_click_callback,
+    snapshot_to_outputs,
     scenario_preset_choices,
     validate_size_feedback,
 )
@@ -71,6 +72,38 @@ class WebUiLocalizationTests(unittest.TestCase):
         self.assertEqual(len(first_output), 8)
         self.assertEqual(first_output[0], "运行中")
 
+    def test_connectivity_check_event_is_shown_in_log_text(self):
+        outputs = snapshot_to_outputs(
+            WebJobSnapshot(
+                status="dry_run",
+                job_root=Path("job"),
+                summary={"total_tasks": 1, "issues": 0},
+                estimate=_estimate(),
+                event_log=[
+                    '{"event":"connectivity_check","message":"联通检测通过","ok":true}'
+                ],
+            )
+        )
+
+        self.assertIn("connectivity_check", outputs.log_text)
+        self.assertIn("联通检测通过", outputs.log_text)
+
+    def test_dry_run_status_includes_connectivity_message(self):
+        outputs = snapshot_to_outputs(
+            WebJobSnapshot(
+                status="dry_run",
+                job_root=Path("job"),
+                summary={"total_tasks": 1, "issues": 0},
+                estimate=_estimate(),
+                event_log=[
+                    '{"event":"connectivity_check","message":"联通失败：无法连接到 API 服务。","ok":false}'
+                ],
+            )
+        )
+
+        self.assertIn("试运行完成", outputs.status)
+        self.assertIn("联通失败", outputs.status)
+
 
 def _default_input_values():
     return [
@@ -116,21 +149,27 @@ class _FakeRunner:
             job_root=Path("job"),
             summary={"total_tasks": 1, "issues": 0},
             estimate=CostEstimate(
-                estimated=True,
-                task_count=1,
-                estimated_output_images=1,
-                estimated_partial_images=0,
-                estimated_prompt_tokens=1,
-                estimated_input_image_tokens=0,
-                estimated_output_image_tokens=1,
-                estimated_partial_image_tokens=0,
-                estimated_total_tokens=2,
-                estimated_image_token_units=1,
-                estimated_total_token_units=2,
-                cost_usd=None,
-                note="test estimate",
+                **_estimate().model_dump()
             ),
         )
+
+
+def _estimate() -> CostEstimate:
+    return CostEstimate(
+        estimated=True,
+        task_count=1,
+        estimated_output_images=1,
+        estimated_partial_images=0,
+        estimated_prompt_tokens=1,
+        estimated_input_image_tokens=0,
+        estimated_output_image_tokens=1,
+        estimated_partial_image_tokens=0,
+        estimated_total_tokens=2,
+        estimated_image_token_units=1,
+        estimated_total_token_units=2,
+        cost_usd=None,
+        note="test estimate",
+    )
 
 
 if __name__ == "__main__":

@@ -9,6 +9,12 @@ from threading import Lock, Thread
 from typing import Callable, Iterable
 
 from app.core.batch_engine import BatchEngine
+from app.core.config import AppConfig
+from app.core.connectivity_check import (
+    ConnectivityCheckResult,
+    check_api_connectivity,
+    format_connectivity_event,
+)
 from app.core.cost_estimator import CostEstimate, CostEstimator
 from app.core.event_protocol import EventProtocol
 from app.core.manifest_store import ManifestStore, sanitize_record
@@ -19,6 +25,7 @@ from app.webui.state import WebFormState
 
 
 ClientFactory = Callable[[object], ImageClient]
+ConnectivityChecker = Callable[[AppConfig], ConnectivityCheckResult]
 
 
 @dataclass
@@ -36,8 +43,16 @@ class WebJobSnapshot:
 
 
 class WebJobRunner:
-    def __init__(self, *, client_factory: ClientFactory | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        client_factory: ClientFactory | None = None,
+        connectivity_checker: ConnectivityChecker | None = None,
+    ) -> None:
         self.client_factory = client_factory or (lambda config: OpenAIImageClient(config))
+        self.connectivity_checker = connectivity_checker or (
+            lambda config: check_api_connectivity(config, timeout_seconds=5)
+        )
         self._control_lock = Lock()
         self._active_control_path: Path | None = None
 
@@ -45,11 +60,13 @@ class WebJobRunner:
         config = state.build_config()
         planned = TaskPlanner(config).build()
         estimate = CostEstimator(config).estimate(planned)
+        connectivity = self.connectivity_checker(config)
         return _snapshot(
             status="dry_run",
             planned=planned,
             estimate=estimate,
             summary={"total_tasks": len(planned.tasks), "issues": len(planned.issues)},
+            event_log=[format_connectivity_event(connectivity)],
         )
 
     def run(self, state: WebFormState) -> Iterable[WebJobSnapshot]:
@@ -228,7 +245,7 @@ def snapshot_to_log_text(snapshot: WebJobSnapshot) -> str:
             parsed.append(EventProtocol.parse_line(line))
         except Exception:
             parsed.append({"event": "raw", "line": line})
-    return "\n".join(json.dumps(record, sort_keys=True, default=str) for record in parsed)
+    return "\n".join(json.dumps(record, ensure_ascii=False, sort_keys=True, default=str) for record in parsed)
 
 
 __all__ = ["WebJobRunner", "WebJobSnapshot", "snapshot_to_log_text"]

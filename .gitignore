@@ -8,6 +8,7 @@ __pycache__/
 build/
 dist/
 output-webui/
+output/
 *.log
 .env
 .env.*

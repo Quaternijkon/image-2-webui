@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import base64
 from io import BytesIO
+import json
 from pathlib import Path
 from typing import Any
 
@@ -199,7 +200,7 @@ def build_state_from_ui(
 
 def snapshot_to_outputs(snapshot: WebJobSnapshot) -> GradioOutputs:
     return GradioOutputs(
-        status=_status_label(snapshot.status),
+        status=_snapshot_status_label(snapshot),
         estimate_markdown=format_estimate_markdown(snapshot.estimate),
         task_rows=[
             [row["task_id"], _status_label(row["status"]), row.get("message", "")]
@@ -602,6 +603,26 @@ def _choices(values: list[Any], labels: dict[str, str]) -> list[tuple[str, Any]]
 
 def _status_label(status: str) -> str:
     return STATUS_LABELS.get(status, status)
+
+
+def _snapshot_status_label(snapshot: WebJobSnapshot) -> str:
+    label = _status_label(snapshot.status)
+    connectivity_message = _connectivity_message(snapshot.event_log)
+    if snapshot.status == "dry_run" and connectivity_message:
+        return f"{label}；{connectivity_message}"
+    return label
+
+
+def _connectivity_message(event_log: list[str]) -> str | None:
+    for line in event_log:
+        try:
+            record = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(record, dict) and record.get("event") == "connectivity_check":
+            message = record.get("message")
+            return str(message) if message else None
+    return None
 
 
 _CSS = """

@@ -15,6 +15,7 @@ ALLOWED_EVENTS = {
     "task_paused",
     "task_stopped",
     "job_completed",
+    "connectivity_check",
 }
 
 REQUIRED_FIELDS = {
@@ -27,6 +28,7 @@ REQUIRED_FIELDS = {
     "task_paused": {"job_id", "task_id"},
     "task_stopped": {"job_id", "task_id"},
     "job_completed": {"succeeded", "failed", "skipped"},
+    "connectivity_check": set(),
 }
 
 
