@@ -431,7 +431,7 @@ def build_demo(runner: WebJobRunner | None = None):
         height.change(validate_size_feedback, size_inputs, size_outputs)
 
         dry_run.click(lambda *values: _dry_run_callback(runner, values), inputs, outputs)
-        run.click(lambda *values: _run_callback(runner, values), inputs, outputs)
+        run.click(make_run_click_callback(runner), inputs, outputs)
         pause.click(lambda: pause_current_job(runner), outputs=status)
         cancel.click(lambda: cancel_current_job(runner), outputs=status)
         refresh_history.click(_history_rows, history_root, history_table)
@@ -467,6 +467,13 @@ def _run_callback(runner: WebJobRunner, values: tuple[Any, ...]):
         yield final_outputs
     if final_outputs is None:
         yield ("无输出", "", [], "", [], None, None, "")
+
+
+def make_run_click_callback(runner: WebJobRunner):
+    def run_click_callback(*values: Any):
+        yield from _run_callback(runner, values)
+
+    return run_click_callback
 
 
 def _apply_preset_callback(preset_key: str, values: tuple[Any, ...]) -> tuple[Any, ...]:
@@ -609,6 +616,7 @@ __all__ = [
     "build_state_from_ui",
     "cancel_current_job",
     "format_estimate_markdown",
+    "make_run_click_callback",
     "pause_current_job",
     "scenario_preset_choices",
     "snapshot_to_outputs",

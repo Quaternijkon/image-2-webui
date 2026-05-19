@@ -1,13 +1,17 @@
 import unittest
+from pathlib import Path
+from inspect import isgeneratorfunction
 
 from app.core.cost_estimator import CostEstimate
 from app.webui.gradio_app import (
     INPUT_NAMES,
     build_state_from_ui,
     format_estimate_markdown,
+    make_run_click_callback,
     scenario_preset_choices,
     validate_size_feedback,
 )
+from app.webui.job_runner import WebJobSnapshot
 
 
 class WebUiLocalizationTests(unittest.TestCase):
@@ -58,6 +62,15 @@ class WebUiLocalizationTests(unittest.TestCase):
         self.assertEqual(state.previous_response_id, "resp_123")
         self.assertEqual(state.image_generation_call_id, "igc_456")
 
+    def test_run_click_callback_is_gradio_streaming_generator(self):
+        callback = make_run_click_callback(_FakeRunner())
+
+        self.assertTrue(isgeneratorfunction(callback))
+        first_output = next(callback(*_default_input_values()))
+
+        self.assertEqual(len(first_output), 8)
+        self.assertEqual(first_output[0], "运行中")
+
 
 def _default_input_values():
     return [
@@ -94,6 +107,30 @@ def _default_input_values():
         "continue",
         "skip_existing",
     ]
+
+
+class _FakeRunner:
+    def run(self, state):
+        yield WebJobSnapshot(
+            status="running",
+            job_root=Path("job"),
+            summary={"total_tasks": 1, "issues": 0},
+            estimate=CostEstimate(
+                estimated=True,
+                task_count=1,
+                estimated_output_images=1,
+                estimated_partial_images=0,
+                estimated_prompt_tokens=1,
+                estimated_input_image_tokens=0,
+                estimated_output_image_tokens=1,
+                estimated_partial_image_tokens=0,
+                estimated_total_tokens=2,
+                estimated_image_token_units=1,
+                estimated_total_token_units=2,
+                cost_usd=None,
+                note="test estimate",
+            ),
+        )
 
 
 if __name__ == "__main__":

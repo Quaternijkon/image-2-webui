@@ -10,7 +10,8 @@ class LauncherScriptTests(unittest.TestCase):
         self.assertIn("enabledelayedexpansion", script)
         self.assertIn("python.exe", script)
         self.assertIn("!base_python! -m venv", script)
-        self.assertIn("-m pip install -r requirements.txt", script)
+        self.assertIn("-m pip --disable-pip-version-check install -r requirements.txt", script)
+        self.assertNotIn("-m pip install --upgrade pip", script)
         self.assertIn("-m app web", script)
         self.assertIn("%*", script)
 

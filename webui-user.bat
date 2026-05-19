@@ -32,14 +32,7 @@ if not exist "%VENV_PYTHON%" (
 
 echo Checking Python dependencies...
 "%VENV_PYTHON%" -m ensurepip --upgrade >nul 2>&1
-"%VENV_PYTHON%" -m pip install --upgrade pip
-if errorlevel 1 (
-    echo Failed to upgrade pip.
-    pause
-    exit /b 1
-)
-
-"%VENV_PYTHON%" -m pip install -r requirements.txt
+"%VENV_PYTHON%" -m pip --disable-pip-version-check install -r requirements.txt
 if errorlevel 1 (
     echo Failed to install dependencies from requirements.txt.
     pause
