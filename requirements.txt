@@ -1,0 +1,7 @@
+openai>=2.37,<3
+keyring>=25.7,<26
+Pillow>=11.3,<12
+pydantic>=2.13,<3
+gradio>=5.0,<6
+typer>=0.25,<1
+requests>=2.32,<3

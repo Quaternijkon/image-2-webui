@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gpt-image-gradio-webui"
+version = "0.1.0"
+description = "Standalone Gradio WebUI for GPT Image batch generation."
+requires-python = ">=3.10"
+dependencies = [
+    "openai>=2.37,<3",
+    "keyring>=25.7,<26",
+    "Pillow>=11.3,<12",
+    "pydantic>=2.13,<3",
+    "gradio>=5.0,<6",
+    "typer>=0.25,<1",
+    "requests>=2.32,<3",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]

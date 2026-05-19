@@ -1,0 +1,42 @@
+{
+  "api": {
+    "intended_for_single_prompt": "image",
+    "endpoints": ["generations", "edits"],
+    "api_types": ["image", "responses"]
+  },
+  "models": {
+    "gpt-image-2": {
+      "image_api": {
+        "generations": true,
+        "edits": true
+      },
+      "responses_api": true,
+      "prompt_max_chars": 32000,
+      "max_input_images": 16,
+      "output_formats": ["png", "jpeg", "webp"],
+      "qualities": ["low", "medium", "high", "auto"],
+      "backgrounds": ["auto", "opaque"],
+      "moderations": ["auto", "low"],
+      "stream": true,
+      "max_n": 10,
+      "transparent_background": false,
+      "compression_formats": ["jpeg", "webp"],
+      "output_compression": {
+        "minimum": 0,
+        "maximum": 100
+      },
+      "partial_images": {
+        "minimum": 0,
+        "maximum": 3
+      },
+      "size": {
+        "auto": true,
+        "max_edge": 3840,
+        "edge_multiple": 16,
+        "max_long_short_ratio": 3,
+        "min_pixels": 655360,
+        "max_pixels": 8294400
+      }
+    }
+  }
+}
