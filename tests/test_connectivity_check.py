@@ -1,6 +1,7 @@
 import unittest
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
+from unittest.mock import patch
 
 from app.core.config import AppConfig
 from app.core.connectivity_check import check_api_connectivity
@@ -29,6 +30,47 @@ class ConnectivityCheckTests(unittest.TestCase):
         self.assertEqual(seen["url"], "http://example.test/v1/models")
         self.assertEqual(seen["auth"], "Bearer secret-key")
         self.assertEqual(seen["timeout"], 3)
+
+    def test_check_uses_configured_proxy_url_for_default_transport(self):
+        seen: dict[str, object] = {}
+
+        class FakeProxyHandler:
+            def __init__(self, proxies):
+                seen["proxies"] = proxies
+
+        class FakeOpener:
+            def __init__(self, handler):
+                seen["handler"] = handler
+
+            def open(self, request: Request, data=None, timeout: float | None = None):
+                seen["url"] = request.full_url
+                seen["data"] = data
+                seen["timeout"] = timeout
+                return _Response(200, b'{"data":[]}')
+
+        def build_opener(handler):
+            return FakeOpener(handler)
+
+        with patch("app.core.connectivity_check.ProxyHandler", FakeProxyHandler, create=True):
+            with patch("app.core.connectivity_check.build_opener", build_opener, create=True):
+                with patch("app.core.connectivity_check.urlopen", side_effect=AssertionError("direct urlopen used")):
+                    result = check_api_connectivity(
+                        _config(
+                            base_url="http://example.test/v1",
+                            api_key="secret-key",
+                            proxy_url="http://127.0.0.1:10808",
+                        ),
+                        timeout_seconds=3,
+                    )
+
+        self.assertTrue(result.ok)
+        self.assertEqual(seen["url"], "http://example.test/v1/models")
+        self.assertIsNone(seen["data"])
+        self.assertEqual(seen["timeout"], 3)
+        self.assertEqual(
+            seen["proxies"],
+            {"http": "http://127.0.0.1:10808", "https": "http://127.0.0.1:10808"},
+        )
 
     def test_check_reports_network_error_without_leaking_api_key(self):
         def transport(request: Request, timeout: float):
@@ -66,14 +108,17 @@ class ConnectivityCheckTests(unittest.TestCase):
         self.assertIn("鉴权失败", result.message)
 
 
-def _config(*, base_url: str, api_key: str) -> AppConfig:
+def _config(*, base_url: str, api_key: str, proxy_url: str | None = None) -> AppConfig:
+    api = {
+        "api_type": "image",
+        "base_url": base_url,
+        "api_key": api_key,
+        "api_key_source": "env",
+    }
+    if proxy_url:
+        api["proxy_url"] = proxy_url
     return AppConfig(
-        api={
-            "api_type": "image",
-            "base_url": base_url,
-            "api_key": api_key,
-            "api_key_source": "env",
-        },
+        api=api,
         prompt={"template": "test"},
         output={"output_dir": "output-webui"},
     )

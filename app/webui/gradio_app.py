@@ -26,6 +26,7 @@ INPUT_NAMES = [
     "api_type",
     "responses_model",
     "base_url",
+    "proxy_url",
     "api_key_source",
     "api_key",
     "user",
@@ -133,6 +134,7 @@ def build_state_from_ui(
     api_type: str,
     responses_model: str,
     base_url: str,
+    proxy_url: str,
     api_key_source: str,
     api_key: str,
     user: str,
@@ -171,6 +173,7 @@ def build_state_from_ui(
         api_type=api_type,  # type: ignore[arg-type]
         responses_model=responses_model.strip() or "gpt-5.5",
         base_url=base_url.strip() or None,
+        proxy_url=proxy_url.strip() or None,
         api_key_source=api_key_source.strip() or "env",
         api_key=api_key or None,
         user=user.strip() or None,
@@ -307,6 +310,7 @@ def build_demo(runner: WebJobRunner | None = None):
                 with gr.Accordion("API 与多轮上下文", open=False):
                     responses_model = gr.Textbox(value="gpt-5.5", label="Responses 模型")
                     base_url = gr.Textbox(label="Base URL（可选）", placeholder="http://66.225.232.37:8317")
+                    proxy_url = gr.Textbox(label="代理 URL（可选）", placeholder="http://127.0.0.1:10808")
                     api_key_source = gr.Textbox(value="env", label="API Key 来源")
                     api_key = gr.Textbox(label="API Key", type="password")
                     user = gr.Textbox(label="用户标识（可选）")
@@ -386,6 +390,7 @@ def build_demo(runner: WebJobRunner | None = None):
             api_type,
             responses_model,
             base_url,
+            proxy_url,
             api_key_source,
             api_key,
             user,
@@ -518,6 +523,7 @@ def _values_from_state(state: WebFormState) -> tuple[Any, ...]:
         state.api_type,
         state.responses_model,
         state.base_url or "",
+        state.proxy_url or "",
         state.api_key_source,
         "",
         state.user or "",

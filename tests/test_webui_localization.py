@@ -63,6 +63,17 @@ class WebUiLocalizationTests(unittest.TestCase):
         self.assertEqual(state.previous_response_id, "resp_123")
         self.assertEqual(state.image_generation_call_id, "igc_456")
 
+    def test_build_state_includes_proxy_url(self):
+        self.assertIn("proxy_url", INPUT_NAMES)
+        kwargs = dict(zip(INPUT_NAMES, _default_input_values()))
+        kwargs["proxy_url"] = "http://127.0.0.1:10808"
+
+        state = build_state_from_ui(**kwargs)
+        config = state.build_config()
+
+        self.assertEqual(state.proxy_url, "http://127.0.0.1:10808")
+        self.assertEqual(config.api.proxy_url, "http://127.0.0.1:10808")
+
     def test_run_click_callback_is_gradio_streaming_generator(self):
         callback = make_run_click_callback(_FakeRunner())
 
@@ -110,6 +121,7 @@ def _default_input_values():
         "generate",
         "responses",
         "gpt-5.5",
+        "",
         "",
         "env",
         "",

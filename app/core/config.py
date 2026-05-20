@@ -20,6 +20,7 @@ class ApiConfig(StrictModel):
     model: Literal["gpt-image-2"] = "gpt-image-2"
     responses_model: str = "gpt-5.5"
     base_url: Optional[str] = None
+    proxy_url: Optional[str] = None
     api_key_source: str = "env"
     api_key: Optional[str] = Field(default=None, exclude=True, repr=False)
     user: Optional[str] = None
@@ -36,6 +37,18 @@ class ApiConfig(StrictModel):
             return None
         if not (stripped.startswith("https://") or stripped.startswith("http://")):
             raise ValueError("base_url must start with http:// or https://")
+        return stripped
+
+    @field_validator("proxy_url")
+    @classmethod
+    def proxy_url_must_be_http_url(cls, value: Optional[str]) -> Optional[str]:
+        if value is None:
+            return None
+        stripped = value.strip().rstrip("/")
+        if not stripped:
+            return None
+        if not (stripped.startswith("https://") or stripped.startswith("http://")):
+            raise ValueError("proxy_url must start with http:// or https://")
         return stripped
 
     @field_validator("api_key_source")

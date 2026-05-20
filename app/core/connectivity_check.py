@@ -6,7 +6,7 @@ from time import monotonic
 from typing import Callable
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlsplit, urlunsplit
-from urllib.request import Request, urlopen
+from urllib.request import ProxyHandler, Request, build_opener, urlopen
 
 from app.core.config import AppConfig
 
@@ -37,7 +37,7 @@ def check_api_connectivity(
 ) -> ConnectivityCheckResult:
     method = "GET"
     url = _models_url(config.api.base_url)
-    transport = transport or _urlopen_transport
+    transport = transport or _transport_for_proxy(config.api.proxy_url)
     started = monotonic()
 
     request = Request(url, method=method, headers=_headers(config.api.api_key))
@@ -142,6 +142,13 @@ def _normalize_base_url(value: str) -> str:
     if parsed.scheme in {"http", "https"} and parsed.netloc and parsed.path in {"", "/"}:
         return urlunsplit((parsed.scheme, parsed.netloc, "/v1", "", ""))
     return stripped
+
+
+def _transport_for_proxy(proxy_url: str | None) -> Transport:
+    if not proxy_url:
+        return _urlopen_transport
+    opener = build_opener(ProxyHandler({"http": proxy_url, "https": proxy_url}))
+    return lambda request, timeout: opener.open(request, timeout=timeout)
 
 
 def _urlopen_transport(request: Request, timeout: float) -> object:

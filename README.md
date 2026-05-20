@@ -43,6 +43,15 @@ python -m app web
 
 粘贴到 WebUI 的 API Key 不会保存到设置文件、manifest、命令预览或日志中。
 
+## Base URL 与代理
+
+如果使用 OpenAI 兼容网关，在 WebUI 的“API 与多轮上下文”里填写：
+
+- `Base URL`: 网关地址，例如 `http://66.225.232.37:8317` 或 `http://66.225.232.37:8317/v1`。程序会把根地址自动规范化为 `/v1`。
+- `代理 URL`: 可选。需要代理访问网关时填写本机代理地址，例如 `http://127.0.0.1:10808`。如果 PowerShell 可以访问服务但 WebUI 报 `Connection error`，通常需要在这里显式填写代理。
+
+点击“试运行”会用 `GET /v1/models` 做快速联通检测；这不是图像生成任务，不会消耗一次图片任务。
+
 ## 目录说明
 
 - `app/webui`: Gradio WebUI、启动器、设置、历史记录、预设和 WebUI 任务执行器。

@@ -61,10 +61,19 @@ class OpenAIImageClient:
             api_key = _resolve_api_key(self.config)
             from openai import AsyncOpenAI
 
-            kwargs = {"api_key": api_key} if api_key is not None else {}
+            kwargs = {"max_retries": 0}
+            if api_key is not None:
+                kwargs["api_key"] = api_key
             base_url = _resolve_base_url(self.config)
             if base_url:
                 kwargs["base_url"] = base_url
+            if self.config.api.proxy_url:
+                import httpx
+
+                kwargs["http_client"] = httpx.AsyncClient(
+                    proxy=self.config.api.proxy_url,
+                    trust_env=False,
+                )
             self._sdk_client = AsyncOpenAI(**kwargs)
         return self._sdk_client
 

@@ -19,6 +19,7 @@ class WebFormState:
     api_type: Literal["image", "responses"] = "image"
     responses_model: str = "gpt-5.5"
     base_url: str | None = None
+    proxy_url: str | None = None
     api_key_source: str = "env"
     api_key: str | None = None
     user: str | None = None
@@ -53,6 +54,7 @@ class WebFormState:
         }
         for key, value in [
             ("base_url", self.base_url),
+            ("proxy_url", self.proxy_url),
             ("api_key", self.api_key),
             ("user", self.user),
             ("previous_response_id", self.previous_response_id),
