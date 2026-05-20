@@ -60,15 +60,19 @@ class BatchEngine:
 
     async def run(self) -> dict[str, int]:
         self._ensure_layout()
-        self._emit("job_started", job_id=self.planned_job.job.job_id, total_tasks=len(self.planned_job.tasks))
-        runnable_tasks = self._select_runnable_tasks()
+        self._clear_control_state()
+        try:
+            self._emit("job_started", job_id=self.planned_job.job.job_id, total_tasks=len(self.planned_job.tasks))
+            runnable_tasks = self._select_runnable_tasks()
 
-        semaphore = asyncio.Semaphore(self.config.execution.concurrency)
-        await asyncio.gather(*(self._run_with_semaphore(semaphore, task) for task in runnable_tasks))
+            semaphore = asyncio.Semaphore(self.config.execution.concurrency)
+            await asyncio.gather(*(self._run_with_semaphore(semaphore, task) for task in runnable_tasks))
 
-        self._write_summary()
-        self._emit("job_completed", **self.summary)
-        return dict(self.summary)
+            self._write_summary()
+            self._emit("job_completed", **self.summary)
+            return dict(self.summary)
+        finally:
+            self._clear_control_state()
 
     def _select_runnable_tasks(self) -> list[TaskPlan]:
         if not self.resume:
@@ -294,6 +298,12 @@ class BatchEngine:
         if not isinstance(payload, dict):
             return {}
         return payload
+
+    def _clear_control_state(self) -> None:
+        try:
+            self.control_path.unlink(missing_ok=True)
+        except OSError:
+            return
 
     def _write_summary(self) -> None:
         _write_json(self.planned_job.job.summary_path, self.summary)
