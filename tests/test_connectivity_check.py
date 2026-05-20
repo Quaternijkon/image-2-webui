@@ -1,4 +1,5 @@
 import unittest
+from io import BytesIO
 from urllib.error import HTTPError, URLError
 from urllib.request import Request
 from unittest.mock import patch
@@ -106,6 +107,60 @@ class ConnectivityCheckTests(unittest.TestCase):
         self.assertFalse(result.ok)
         self.assertEqual(result.code, "auth_failed")
         self.assertIn("鉴权失败", result.message)
+
+    def test_endpoint_probe_reports_deactivated_workspace_without_real_generation(self):
+        seen: list[tuple[str, str, bytes | None]] = []
+
+        def transport(request: Request, timeout: float):
+            seen.append((request.get_method(), request.full_url, request.data))
+            if request.full_url.endswith("/models"):
+                return _Response(200, b'{"data":[]}')
+            raise HTTPError(
+                request.full_url,
+                402,
+                "Payment Required",
+                hdrs=None,
+                fp=BytesIO(b'{"detail":{"code":"deactivated_workspace"}}'),
+            )
+
+        result = check_api_connectivity(
+            _config(base_url="http://example.test/v1", api_key="secret-key"),
+            transport=transport,
+            endpoint_probe=True,
+        )
+
+        self.assertFalse(result.ok)
+        self.assertTrue(result.reachable)
+        self.assertEqual(result.code, "account_unavailable")
+        self.assertEqual(result.method, "POST")
+        self.assertEqual(result.url, "http://example.test/v1/images/generations")
+        self.assertEqual(seen[0], ("GET", "http://example.test/v1/models", None))
+        self.assertEqual(seen[1], ("POST", "http://example.test/v1/images/generations", b"{}"))
+        self.assertIn("工作区", result.message)
+
+    def test_endpoint_probe_treats_expected_validation_error_as_success(self):
+        def transport(request: Request, timeout: float):
+            if request.full_url.endswith("/models"):
+                return _Response(200, b'{"data":[]}')
+            raise HTTPError(
+                request.full_url,
+                400,
+                "Bad Request",
+                hdrs=None,
+                fp=BytesIO(b'{"error":{"message":"prompt is required"}}'),
+            )
+
+        result = check_api_connectivity(
+            _config(base_url="http://example.test/v1", api_key="secret-key"),
+            transport=transport,
+            endpoint_probe=True,
+        )
+
+        self.assertTrue(result.ok)
+        self.assertTrue(result.reachable)
+        self.assertEqual(result.code, "ok")
+        self.assertEqual(result.status_code, 400)
+        self.assertIn("生成端点", result.message)
 
 
 def _config(*, base_url: str, api_key: str, proxy_url: str | None = None) -> AppConfig:

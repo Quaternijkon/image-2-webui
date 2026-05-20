@@ -129,8 +129,10 @@ class BatchEngine:
                 output_files: list[str] = []
                 usage = None
                 completed_seen = False
+                partial_seen = False
                 for result in results:
                     if isinstance(result, PartialImage):
+                        partial_seen = True
                         if self.config.image.save_partials:
                             partial_path = self.writer.write_partial(
                                 task,
@@ -150,7 +152,11 @@ class BatchEngine:
                         usage = result.usage
                         completed_seen = True
                 if not completed_seen:
-                    raise ImageBatchError("invalid_response", "API response did not include a completed image")
+                    raise ImageBatchError(
+                        "invalid_response",
+                        "API response did not include a completed image",
+                        retryable=self.config.image.stream or partial_seen,
+                    )
                 self.summary["succeeded"] += 1
                 record = {
                     "task_id": task.task_id,
@@ -263,6 +269,8 @@ class BatchEngine:
         if issues:
             event_fields["issues"] = issues
         self._emit("task_failed", **event_fields)
+        if error.fatal:
+            self._stop_requested = True
 
     def _record_terminal_state(self, task: TaskPlan, status: str) -> None:
         self.summary[status] += 1

@@ -51,7 +51,7 @@ class WebJobRunner:
     ) -> None:
         self.client_factory = client_factory or (lambda config: OpenAIImageClient(config))
         self.connectivity_checker = connectivity_checker or (
-            lambda config: check_api_connectivity(config, timeout_seconds=5)
+            lambda config: check_api_connectivity(config, timeout_seconds=5, endpoint_probe=True)
         )
         self._control_lock = Lock()
         self._active_control_path: Path | None = None

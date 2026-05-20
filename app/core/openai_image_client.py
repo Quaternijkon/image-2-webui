@@ -10,7 +10,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from app.core.api_capabilities import get_model_capabilities, mode_to_responses_action
 from app.core.config import AppConfig
-from app.core.errors import classify_exception
+from app.core.errors import ImageBatchError, classify_exception
 from app.core.models import TaskPlan
 
 
@@ -212,6 +212,7 @@ class DeterministicMockImageClient:
 
 
 async def _collect_non_stream(response: Any) -> ImageClientResult:
+    _raise_response_issue(response)
     usage = _as_dict(getattr(response, "usage", None))
     results: ImageClientResult = []
     for item in getattr(response, "data", []) or []:
@@ -222,6 +223,7 @@ async def _collect_non_stream(response: Any) -> ImageClientResult:
 
 
 def _collect_responses_response(response: Any) -> ImageClientResult:
+    _raise_response_issue(response)
     usage = _as_dict(getattr(response, "usage", None)) or {}
     response_id = _get_value(response, "id")
     if response_id:
@@ -229,6 +231,7 @@ def _collect_responses_response(response: Any) -> ImageClientResult:
 
     results: ImageClientResult = []
     for item in getattr(response, "output", []) or []:
+        _raise_response_issue(item)
         if _get_value(item, "type") != "image_generation_call":
             continue
         b64_json = _get_value(item, "result")
@@ -246,6 +249,7 @@ async def _collect_stream(response: Any) -> ImageClientResult:
     results: ImageClientResult = []
     async for event in response:
         event_type = str(_get_value(event, "type") or "")
+        _raise_response_issue(event)
         b64_json = _get_value(event, "b64_json") or _get_value(event, "partial_image_b64")
         if not b64_json and event_type == "response.output_item.done":
             item = _get_value(event, "item")
@@ -263,6 +267,74 @@ async def _collect_stream(response: Any) -> ImageClientResult:
         elif event_type == "response.output_item.done":
             results.append(CompletedImage(b64_json=str(b64_json), usage=None))
     return results
+
+
+class _ResponsePayloadError(Exception):
+    def __init__(self, payload: Any) -> None:
+        self.body = payload
+        self.status_code = _get_value(payload, "status_code")
+        message = _get_value(payload, "message") or _get_value(payload, "code") or "API response error"
+        super().__init__(str(message))
+
+
+def _raise_response_issue(value: Any) -> None:
+    if value is None:
+        return
+
+    reason = _get_value(_get_value(value, "incomplete_details"), "reason")
+    if _looks_like_content_policy(reason):
+        raise ImageBatchError("content_policy", f"API response was filtered: {reason}", retryable=False)
+
+    refusal = _find_refusal(value)
+    if refusal:
+        raise ImageBatchError("content_policy", str(refusal), retryable=False)
+
+    error_payload = _get_value(value, "error")
+    if error_payload:
+        raise classify_exception(_ResponsePayloadError(error_payload))
+
+    nested_response = _get_value(value, "response")
+    if nested_response is not None and nested_response is not value:
+        _raise_response_issue(nested_response)
+
+
+def _find_refusal(value: Any) -> str | None:
+    value_type = _get_value(value, "type")
+    if value_type == "refusal":
+        return str(_get_value(value, "refusal") or _get_value(value, "text") or "API refused the request.")
+
+    for key in ("output", "content"):
+        for item in _as_list(_get_value(value, key)):
+            refusal = _find_refusal(item)
+            if refusal:
+                return refusal
+    return None
+
+
+def _looks_like_content_policy(value: Any) -> bool:
+    text = str(value or "").lower()
+    return any(
+        token in text
+        for token in [
+            "content_policy",
+            "content policy",
+            "content_filter",
+            "content filter",
+            "safety",
+            "moderation",
+            "policy_violation",
+        ]
+    )
+
+
+def _as_list(value: Any) -> list[Any]:
+    if value is None:
+        return []
+    if isinstance(value, list):
+        return value
+    if isinstance(value, tuple):
+        return list(value)
+    return []
 
 
 def _get_value(value: Any, key: str) -> Any:
